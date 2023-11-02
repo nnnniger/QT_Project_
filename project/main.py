@@ -1,11 +1,123 @@
+import sys
 import sqlite3
-
 from PyQt5.QtGui import QFont
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QPushButton, QLineEdit, QLabel, QProgressBar
+from PyQt5 import QtGui, QtWidgets
+from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QLineEdit, QLabel, QProgressBar
 global correct_answers, points
 correct_answers = 0
 points = 0
+
+class RegistrationWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setFixedSize(801, 599)
+        self.initUI()
+        self.setWindowTitle("Registration Window")
+        self.enter_name_button.clicked.connect(self.register_user)
+
+    def initUI(self):
+        self.enter_name_button = QPushButton(self)
+        self.enter_name_button.setGeometry(250, 360, 291, 111)
+
+        font = QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+
+        self.enter_name_button.setFont(font)
+        self.enter_name_button.setText("Играть")
+
+        self.enter_name_label = QLabel(self)
+        self.enter_name_label.setGeometry(330, 220, 131, 41)
+
+        font = QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+
+        self.enter_name_label.setFont(font)
+        self.enter_name_label.setText("Введите имя пользователя")
+
+        self.about_program_button = QPushButton(self)
+        self.about_program_button.setGeometry(670, 555, 121, 31)
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        self.about_program_button.setFont(font)
+        self.about_program_button.setText("О программе")
+        self.about_program_button.clicked.connect(self.about_program)
+
+        self.username_input = QLineEdit(self)
+        self.username_input.setGeometry(230, 280, 331, 51)
+        self.username_input.setText("")
+        self.username_input.setObjectName("lineEdit")
+
+        self.leader_board_label = QLabel(self)
+        self.leader_board_label.setGeometry(270, 30, 251, 81)
+
+        font = QFont()
+        font.setPointSize(16)
+
+        self.username_input.setFont(font)
+
+        font = QFont()
+        font.setPointSize(11)
+
+        self.leader_board_label.setFont(font)
+        self.leader_board_label.setText("Leader:")
+
+    def about_program(self):
+        self.second_form = SecondForm(self)
+        self.second_form.show()
+
+    def register_user(self):
+        username = self.username_input.text()
+        if username:
+            with open("players.txt", "a", encoding="utf-8") as file:
+                file.write(username + "\n")
+                QtWidgets.QMessageBox.information(self, "Success", "User registered successfully!")
+        else:
+            QtWidgets.QMessageBox.warning(self, "Error", "Please enter a username!")
+        mainwindow = MainWidget()
+        mainwindow.show()
+        self.close()
+
+
+class SecondForm(QWidget):
+    def __init__(self, *args):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setGeometry(500, 500, 700, 400)
+        self.setWindowTitle('about program')
+        self.lbl = QLabel(self)
+
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        self.lbl.setFont(font)
+        self.lbl.setGeometry(20, 20, 20, 30)
+        self.lbl.setText("""1. Регистрация и начало игры
+Чтобы начать играть, зарегистрируйтесь
+После регистрации, откроется окно самой игры, в котором:
+    ♦ В верхней части экрана, вам будет задан вопрос в формате "Напишите..."
+    ♦ В середине экрана перед вами будет поле ввода ответа
+    ♦ Также, в середине экрана будут находиться кнопки с буквами, нажав на которые
+    их значение добавится в поле ввода ответа
+    ♦ Рядом с ними будут находиться кнопки backspace("⌫") и "Enter", выполняющие
+    соответственные функции
+    ♦ У вас будет всего 3 попытки ответа на вопрос
+3. Подсказка
+При ответе, вы можете использовать подсказку, которая будет показывать количество
+букв в ответе, но использовав подсказку, количесто баллов, которые вы получите после
+ответа на вопрос - уменишится на 1 
+4. Система оценивания
+При правильном ответе на вопрос, без использования подсказки, вы получаете 2 балла
+Использовав подсказку, вы получаете 1 балл
+Потратив 3 попытки ответа, вы получаете - 0 баллов""")
+        self.lbl.adjustSize()
+
+
 class MainWidget(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -68,6 +180,7 @@ class MainWidget(QMainWindow):
     def initUI(self):
 
         self.user_answer = QLineEdit(self)
+        self.user_answer.setReadOnly(True)
         self.user_answer.setGeometry(220, 160, 381, 41)
 
 
@@ -178,6 +291,7 @@ class MainWidget(QMainWindow):
             self.attemps = 3
             self.number_of_qwestion_label.setText(f"Вопрос {self.number_of_question} из 10")
             self.roundclose = False
+            self.usehint = True
             self.points_label.setText(f"Очки: {self.points}")
             points = self.points
 
@@ -190,10 +304,9 @@ class MainWidget(QMainWindow):
         self.user_answer.setText(self.user_answer.text() + letter)
 
 
-if __name__ == '__main__':
-    app = QApplication([])
-    window = QMainWindow()
-    widget = MainWidget()
-    window.setCentralWidget(widget)
-    window.show()
-    app.exec_()
+if __name__ == "__main__":
+
+    app = QtWidgets.QApplication(sys.argv)
+    registration_window = RegistrationWindow()
+    registration_window.show()
+    sys.exit(app.exec_())
