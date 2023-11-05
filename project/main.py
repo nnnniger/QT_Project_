@@ -1,17 +1,22 @@
 import sys
 import sqlite3
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QPixmap
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QLineEdit, QLabel, QProgressBar
-global correct_answers, points
-correct_answers = 0
+
+
+name = ""
 points = 0
+correct_answers = 0
 
 class RegistrationWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setFixedSize(801, 599)
         self.initUI()
+
+
+
         self.setWindowTitle("Registration Window")
         self.enter_name_button.clicked.connect(self.register_user)
 
@@ -63,7 +68,14 @@ class RegistrationWindow(QMainWindow):
         font.setPointSize(11)
 
         self.leader_board_label.setFont(font)
-        self.leader_board_label.setText("Leader:")
+
+        self.con = sqlite3.connect("DataBaseForMainWindow.sqlite")
+        self.cur = self.con.cursor()
+        self.Data = self.cur.execute("""SELECT * FROM Users""").fetchall()
+        self.con.close()
+
+        leader = sorted(self.Data, key=lambda x: x[1])[-1]
+        self.leader_board_label.setText(f"Leader: {leader[0]}")
 
     def about_program(self):
         self.second_form = SecondForm(self)
@@ -71,15 +83,19 @@ class RegistrationWindow(QMainWindow):
 
     def register_user(self):
         username = self.username_input.text()
+
         if username:
-            with open("players.txt", "a", encoding="utf-8") as file:
-                file.write(username + "\n")
+            if username not in self.Data:
+                global name
+                name = username
                 QtWidgets.QMessageBox.information(self, "Success", "User registered successfully!")
+                mainwindow = MainWidget()
+                mainwindow.show()
+                self.close()
+            else:
+                QtWidgets.QMessageBox.warning(self, "Error", "This name is already used")
         else:
             QtWidgets.QMessageBox.warning(self, "Error", "Please enter a username!")
-        mainwindow = MainWidget()
-        mainwindow.show()
-        self.close()
 
 
 class SecondForm(QWidget):
@@ -113,8 +129,7 @@ class SecondForm(QWidget):
 ответа на вопрос - уменишится на 1 
 4. Система оценивания
 При правильном ответе на вопрос, без использования подсказки, вы получаете 2 балла
-Использовав подсказку, вы получаете 1 балл
-Потратив 3 попытки ответа, вы получаете - 0 баллов""")
+Использовав подсказку, вы получаете""")
         self.lbl.adjustSize()
 
 
@@ -126,7 +141,6 @@ class MainWidget(QMainWindow):
         self.setWindowTitle("Ossetian Language Quiz")
         self.id_of_dataBase = 0
         self.number_of_question = 1
-        self.correct_answers = correct_answers
         self.points = 0
         self.attemps = 3
         self.usehint = True
@@ -171,7 +185,8 @@ class MainWidget(QMainWindow):
         self.number_of_qwestion_label.setFont(font)
         self.number_of_qwestion_label.setText(f"Вопрос {self.number_of_question} из 10")
 
-        self.points_label.setText(f"Очки: {self.points}")
+        global points
+        self.points_label.setText(f"Очки: {points}")
 
         self.enter_button.clicked.connect(self.do_is)
         self.backspace_button.clicked.connect(self.backspase)
@@ -183,7 +198,6 @@ class MainWidget(QMainWindow):
         self.user_answer.setReadOnly(True)
         self.user_answer.setGeometry(220, 160, 381, 41)
 
-
         self.points_label = QLabel(self)
         font = QtGui.QFont()
         font.setPointSize(10)
@@ -191,7 +205,6 @@ class MainWidget(QMainWindow):
         font.setWeight(75)
         self.points_label.setFont(font)
         self.points_label.setGeometry(650, 0, 81, 41)
-
 
         self.enter_button = QPushButton(self)
         self.enter_button.setText('Enter')
@@ -244,7 +257,6 @@ class MainWidget(QMainWindow):
         self.number_of_qwestion_label = QLabel(self)
         self.number_of_qwestion_label.setGeometry(340, 430, 151, 31)
 
-
     def backspase(self):
         t = self.user_answer.text()
         if t:
@@ -253,11 +265,13 @@ class MainWidget(QMainWindow):
     def do_is(self):
         if self.user_answer.text().lower() == self.ans:
             if self.usehint == True:
-                self.points += 2
+                global points
+                points += 2
             else:
-                self.points += 1
+                points += 1
             QtWidgets.QMessageBox.information(self, "Success", "Поздравляю! Вы ответили правильно!")
-            self.correct_answers += 1
+            global correct_answers
+            correct_answers += 1
             self.roundclose = True
         else:
             self.attemps -= 1
@@ -292,8 +306,11 @@ class MainWidget(QMainWindow):
             self.number_of_qwestion_label.setText(f"Вопрос {self.number_of_question} из 10")
             self.roundclose = False
             self.usehint = True
-            self.points_label.setText(f"Очки: {self.points}")
-            points = self.points
+            self.points_label.setText(f"Очки: {points}")
+        if self.number_of_question == 9:
+            self.finishwindow = FinishWindow()
+            self.finishwindow.show()
+            self.close()
 
     def hint(self):
         QtWidgets.QMessageBox.information(self, f"hint for {self.number_of_question} question",
@@ -304,8 +321,125 @@ class MainWidget(QMainWindow):
         self.user_answer.setText(self.user_answer.text() + letter)
 
 
-if __name__ == "__main__":
+class FinishWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setFixedSize(801, 599)
+        self.initUI()
+        self.setWindowTitle("What are you osettian")
+        self.correct_answers = correct_answers
 
+        global points, name
+        self.result_label.setText(
+            f"Вы ответили правильно на {self.correct_answers} вопросов из 10, набрав {points} очко(в)")
+        self.new_game_with_old_name_button.setText("Играть снова (под тем же именем)")
+        self.new_game_with_old_name_button.clicked.connect(self.new_game_with_old_name)
+
+        self.new_game_with_new_name_button.setText("Играть снова (под новым же именем)")
+        self.new_game_with_new_name_button.clicked.connect(self.new_game_with_new_name)
+
+        conn = sqlite3.connect("DataBaseForMainWindow.sqlite")
+        c = conn.cursor()
+        c.execute(f'INSERT INTO Users(name, points) VALUES ("{name}", {points})', )
+        conn.commit()
+        conn.close()
+
+        self.exit_button.setText("выйти")
+        self.exit_button.clicked.connect(self.exit)
+
+        self.test_button.setText("Узнать на сколько я осетин")
+        self.test_button.clicked.connect(self.test)
+
+    def initUI(self):
+        self.pixmap = QPixmap('ae_letter.png')
+        self.image = QLabel(self)
+        self.image.move(240, 310)
+        self.image.resize(301, 161)
+        self.image.setPixmap(self.pixmap)
+
+        self.result_label = QtWidgets.QLabel(self)
+        self.result_label.setGeometry(80, 50, 650, 71)
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.result_label.setFont(font)
+        self.new_game_with_old_name_button = QPushButton(self)
+        self.new_game_with_old_name_button.setGeometry(290, 480, 211, 41)
+        self.new_game_with_new_name_button = QPushButton(self)
+        self.new_game_with_new_name_button.setGeometry(290, 530, 211, 41)
+        self.exit_button = QPushButton(self)
+        self.exit_button.setGeometry(510, 510, 75, 23)
+        self.test_button = QPushButton(self)
+        self.test_button.setGeometry(140, 130, 531, 171)
+        font = QtGui.QFont()
+        font.setFamily("MS Shell Dlg 2")
+        font.setPointSize(18)
+        font.setBold(True)
+        font.setWeight(75)
+        self.test_button.setFont(font)
+
+    def exit(self):
+        self.close()
+
+    def new_game_with_old_name(self):
+        main_window = MainWidget()
+        main_window.show()
+        self.close()
+
+    def new_game_with_new_name(self):
+        self.registr_window = RegistrationWindow()
+        self.registr_window.show()
+        self.close()
+
+    def test(self):
+        self.test_widget = TestWidget(self)
+        self.test_widget.show()
+
+
+class TestWidget(QWidget):
+    def __init__(self, *args):
+        super().__init__()
+        self.initUI()
+        global correct_answers
+        if correct_answers == 0:
+            self.osettian_label.setText(
+                """Хм... Ты не очень знаешь осетинский) Почитай словарь и нартский эпос, а потом попробуй снова! (0%)""")
+        elif correct_answers == 1:
+            self.osettian_label.setText("""Поздравляю! Ты явно был в Осетии (10%)""")
+        elif correct_answers == 2:
+            self.osettian_label.setText("""Поздравляю! Ты явно был в Осетии и пробовал ирон фыдджын (20%)""")
+        elif correct_answers == 3:
+            self.osettian_label.setText("""Поздравляю! Ты на 1/3 Осетин! (30%)""")
+        elif correct_answers == 4:
+            self.osettian_label.setText("""Поздравляю! Ты друг настоящего Осетина! (40%)""")
+        elif correct_answers == 5:
+            self.osettian_label.setText("""Поздравляю! Ты как минимум живешь в Осетии (50%)""")
+        elif correct_answers == 6:
+            self.osettian_label.setText("""Поздравляю! Ты родился в Осетии (60%)""")
+        elif correct_answers == 7:
+            self.osettian_label.setText("""Поздравляю! Ты несомненно хорош, но надо подучить Осетинскую культуру (70%)""")
+        elif correct_answers == 8:
+            self.osettian_label.setText("""Поздравляю! Ты кушаешь ирон фыдджын каждый день (80%)""")
+        elif correct_answers == 9:
+            self.osettian_label.setText("""Поздравляю! Ты настоящий Осетин (90%)""")
+        elif correct_answers == 10:
+            self.osettian_label.setText("""Поздравляю! Ты настоящий ирон фыдджын (100%)""")
+
+    def initUI(self):
+        self.setGeometry(20, 20, 900, 70)
+        self.setWindowTitle('ossetian_test')
+        self.osettian_label = QLabel(self)
+
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+
+        self.osettian_label.setFont(font)
+        self.osettian_label.setGeometry(10, 10, 900, 50)
+
+
+if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     registration_window = RegistrationWindow()
     registration_window.show()
